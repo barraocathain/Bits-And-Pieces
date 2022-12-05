@@ -1,0 +1,12 @@
+* Bits and Pieces
+Bits and pieces is a repository containing exactly that, bits and pieces of
+code. This may include tools that are too small for their own repo, functions
+which may be useful in other programs, and pieces to practice various techniques
+and concepts.
+
+These are not guaranteed to be good, stay working, or even work in the first
+place.
+
+Copying and distribution of these files, with or without modification, are
+permitted in any medium without royalty. This file is offered as-is, without any
+warranty. 
