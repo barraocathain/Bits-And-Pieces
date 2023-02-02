@@ -1,4 +1,4 @@
-// SDL Experiment 05, Barra Ó Catháin.
+// SDL Experiment 06, Barra Ó Catháin.
 // ===================================
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_timer.h>
@@ -49,8 +49,9 @@ int main(int argc, char ** argv)
 	SDL_Event event;
 	bool quit = false;
 	int width = 0, height = 0;
+	uint64_t thisFrameTime = SDL_GetPerformanceCounter(), lastFrameTime = 0;
 	uint32_t rendererFlags = SDL_RENDERER_ACCELERATED;
-	double posX = 0, posY = 0;
+	double posX = 0, posY = 0, deltaTime = 0;
 	long positionX = 0, positionY = 0;
 	double velocityX = 20, velocityY = 0, gravityX = 0, gravityY = 0, gravityMagnitude = 0, gravityAcceleration = 0;
 
@@ -59,7 +60,7 @@ int main(int argc, char ** argv)
 	{
 		printf("SDL Initialization Error: %s\n", SDL_GetError());
 	}
-
+	
 	// Create an SDL window and rendering context in that window:
 	SDL_Window * window = SDL_CreateWindow("SDL_TEST", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 640, 0);
 	SDL_Renderer * renderer = SDL_CreateRenderer(window, -1, rendererFlags);
@@ -69,6 +70,10 @@ int main(int argc, char ** argv)
 
 	while (!quit)
 	{
+		lastFrameTime = thisFrameTime;
+		thisFrameTime = SDL_GetPerformanceCounter();
+		deltaTime = (double)(((thisFrameTime - lastFrameTime) * 1000) / (double)SDL_GetPerformanceFrequency());
+		
 		// Check if the user wants to quit:
 		while (SDL_PollEvent(&event))
         {
@@ -100,7 +105,7 @@ int main(int argc, char ** argv)
 		gravityY /= gravityMagnitude;
 		
 		// Calculate the gravity between them and scale the vector:
-  		if(gravityMagnitude > 15)
+		if(gravityMagnitude > 15)
 		{
 			gravityAcceleration = 2 * (2500 / pow(gravityMagnitude, 2));
 			gravityX *= gravityAcceleration;
@@ -136,12 +141,12 @@ int main(int argc, char ** argv)
 		}
 
 		// Calculate the new current velocity:
-		velocityX += gravityX;
-		velocityY += gravityY;
+		velocityX += gravityX * (deltaTime * 0.001) * 60;
+		velocityY += gravityY * (deltaTime * 0.001) * 60;
 
 		// Calculate the new position:
-		posX += velocityX;
-		posY += velocityY;
+		posX += velocityX * (deltaTime * 0.001) * 60;
+		posY += velocityY * (deltaTime * 0.001) * 60;
 
 		positionX = (long)posX;
 		positionY = (long)posY;
@@ -165,17 +170,14 @@ int main(int argc, char ** argv)
 		DrawCircle(renderer, width/2, height/2, 30);
 
 		// Draw a line representing the velocity:
-		SDL_RenderDrawLine(renderer, positionX, positionY, (long)((posX + velocityX * 3)), (long)((posY + velocityY * 3)));
+		SDL_RenderDrawLine(renderer, positionX, positionY, (long)(posX + velocityX * 3), (long)(posY + velocityY * 3));
 		
 		// Present the rendered graphics:
 		SDL_RenderPresent(renderer);
-
-		// Delay enough so that we run at 60 frames:
-		SDL_Delay(1000 / 60);
 	}
 	return 0;
 }
 // ===========================================================================================
 // Local Variables:
-// compile-command: "gcc `sdl2-config --libs --cflags` SDL2-Experiment-05.c  -lm"
+// compile-command: "gcc `sdl2-config --libs --cflags` SDL2-Experiment-06.c  -lm"
 // End:

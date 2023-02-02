@@ -64,11 +64,6 @@ int main(int argc, char ** argv)
 	{
 		printf("SDL Initialization Error: %s\n", SDL_GetError());
 	}
-
-	if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
-	{
-		printf("SDL Initialization Error: %s\n", SDL_GetError());
-	}
 	
 	// Create an SDL window and rendering context in that window:
 	SDL_Window * window = SDL_CreateWindow("SDL_TEST", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 640, 0);
