@@ -1,0 +1,19 @@
+* Experiments 1-3: Basics:
+These experiments are mostly about learning to put things on the screen.
+- Experiment 01: A "Radar" which tracks the position of the mouse, drawn using
+  SDL2 primitives and a loaded image.
+- Experiment 02: A stripped down version of the first experiment, using keyboard
+  input to move the cursor.
+- Experiment 03: An improved version of 02, which uses movement acceleration to
+  make it feel better to use.
+  
+* Experiment 4-8: Gravity
+These experiments are based around developing a gravity simulation.
+- Experiment 04: An example of simple gravity and bouncing simulation.
+- Experiment 05: A "Spacewar" style gravity simulation, with a ship orbiting a star.
+- Experiment 06: A modified version of 05, using delta-time scaling so it is
+  framerate independent.
+- Experiment 07: A clean-up of 06 so it's clearer to read and to further adapt
+  into the Spacewar clone I'm planning on building.
+- Experiment 08: A modified version of the simulation where the mouse is the
+  "star." Fun to play aronud with.
