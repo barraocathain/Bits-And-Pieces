@@ -270,6 +270,11 @@ int main(int argc, char ** argv)
 		{
 			gravityAcceleration = 1;
 		}
+
+		if(gravityAcceleration < 0.01)
+		{
+			gravityAcceleration = 0.01;
+		}
 		
 		// Scale the vector:
 		multiplyXYVector(&gravityVector, gravityAcceleration);
