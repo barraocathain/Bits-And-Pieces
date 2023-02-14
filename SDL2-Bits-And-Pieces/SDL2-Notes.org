@@ -17,3 +17,5 @@ These experiments are based around developing a gravity simulation.
   into the Spacewar clone I'm planning on building.
 - Experiment 08: A modified version of the simulation where the mouse is the
   "star." Fun to play aronud with.
+- Experiment 09: A version of the simulation where the ship can be steered and
+  accelerated. 
