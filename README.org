@@ -7,6 +7,6 @@ and concepts.
 These are not guaranteed to be good, stay working, or even work in the first
 place.
 
-Copying and distribution of these files, with or without modification, are
-permitted in any medium without royalty. This file is offered as-is, without any
-warranty. 
+Copying and distribution of these files, with or without modification, is
+permitted in any medium without royalty. These files are offered as-is, without
+any warranty.
