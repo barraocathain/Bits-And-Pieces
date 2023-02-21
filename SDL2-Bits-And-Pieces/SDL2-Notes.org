@@ -1,14 +1,9 @@
-* Experiments 1-3: Basics:
-These experiments are mostly about learning to put things on the screen.
 - Experiment 01: A "Radar" which tracks the position of the mouse, drawn using
   SDL2 primitives and a loaded image.
 - Experiment 02: A stripped down version of the first experiment, using keyboard
   input to move the cursor.
 - Experiment 03: An improved version of 02, which uses movement acceleration to
   make it feel better to use.
-  
-* Experiment 4-8: Gravity
-These experiments are based around developing a gravity simulation.
 - Experiment 04: An example of simple gravity and bouncing simulation.
 - Experiment 05: A "Spacewar" style gravity simulation, with a ship orbiting a star.
 - Experiment 06: A modified version of 05, using delta-time scaling so it is
@@ -19,3 +14,9 @@ These experiments are based around developing a gravity simulation.
   "star." Fun to play aronud with.
 - Experiment 09: A version of the simulation where the ship can be steered and
   accelerated. 
+- Experiment 10: A version of the simulation where the ship has been given a
+  sprite. 
+- Experiment 11: A version of the simulation where the sprite animates while
+  accelerating. 
+- Experiment 12: A version of the simulation where the screen scrolls around
+  with the movement of the ship.
