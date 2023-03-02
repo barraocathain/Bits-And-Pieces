@@ -233,7 +233,8 @@ int main(int argc, char ** argv)
 	// Initialize image loading:
 	IMG_Init(IMG_INIT_PNG);
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
-
+	SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+	
 	// Create an SDL window and rendering context in that window:
 	SDL_Window * window = SDL_CreateWindow("SDL_TEST", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 700, 700, 0);
 	SDL_Renderer * renderer = SDL_CreateRenderer(window, -1, rendererFlags);
