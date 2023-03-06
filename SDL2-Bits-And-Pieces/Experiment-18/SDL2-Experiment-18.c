@@ -1,4 +1,4 @@
-// SDL Experiment 17, Barra Ó Catháin.
+// SDL Experiment 18, Barra Ó Catháin.
 // ===================================
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
@@ -197,6 +197,49 @@ ship createShip(int width, int height, double positionX, double positionY, doubl
 	return newShip;
 }
 
+playerController createShipPlayerController(ship * ship)
+{
+	playerController newController;
+	newController.number = ship->number;
+	return newController;
+}
+
+static inline void takeNetworkInput(playerController * controller, int descriptor)
+{
+	recvfrom(descriptor, controller, sizeof(playerController), 0, NULL, NULL);
+}
+
+
+void doShipInput(playerController * controller, ship * ship, xyVector starPosition, double deltaTime)
+{
+	if(controller->number == ship->number)
+	{
+		// Calculate the gravity for the ships:
+		calculateGravity(&starPosition, ship);
+				
+		// Rotate the engine vector if needed:
+		if (controller->turningClockwise)
+		{
+			rotateXYVector(&ship->engine, 0.25 * deltaTime);
+		}
+		if (controller->turningAnticlockwise)
+		{
+			rotateXYVector(&ship->engine, -0.25 * deltaTime);	
+		}
+		
+		// Calculate the new current velocity:
+		addXYVectorDeltaScaled(&ship->velocity, &ship->gravity, deltaTime);
+		
+		if (controller->accelerating)
+		{
+			addXYVectorDeltaScaled(&ship->velocity, &ship->engine, deltaTime);
+		}
+		
+		// Calculate the new position:
+		addXYVectorDeltaScaled(&ship->position, &ship->velocity, deltaTime);
+	}
+}
+
 int main(int argc, char ** argv)
 {
 	SDL_Event event;
@@ -209,8 +252,8 @@ int main(int argc, char ** argv)
 	xyVector engineVector = {0.85, 0}, upVector = {0, 0.1}, starPosition = {0, 0};
 
 	// Create the socket:
-	int socketFileDesc = socket(AF_INET, SOCK_DGRAM, 0);
-	if (socketFileDesc < 0)
+	int sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sendSocket < 0)
 	{
 		fprintf(stderr, "\tSocket Creation is:\t\033[33;40mRED.\033[0m Aborting launch.\n");
 		exit(0);
@@ -218,10 +261,38 @@ int main(int argc, char ** argv)
 	printf("\tSocket Creation is:\t\033[32;40mGREEN.\033[0m\n");
 
 	// Create and fill the information needed to bind to the socket:
-	struct sockaddr_in serverAddress;
-	serverAddress.sin_family = AF_INET; // IPv4
-	serverAddress.sin_addr.s_addr = inet_addr("127.0.0.1");
-	serverAddress.sin_port = htons(12000);
+	struct sockaddr_in sendAddress;
+	sendAddress.sin_family = AF_INET; // IPv4
+	sendAddress.sin_addr.s_addr = inet_addr("127.0.0.1");
+	sendAddress.sin_port = htons(12000);
+
+	int receiveSocket = socket(AF_INET, SOCK_DGRAM, 0);
+	if (receiveSocket < 0)
+	{
+		fprintf(stderr, "\tSocket Creation is:\t\033[33;40mRED.\033[0m Aborting launch.\n");
+		exit(0);
+	}
+	printf("\tSocket Creation is:\t\033[32;40mGREEN.\033[0m\n");
+
+	// Make the socket timeout:
+	struct timeval readTimeout;
+	readTimeout.tv_sec = 0;
+	readTimeout.tv_usec = 800;
+	setsockopt(receiveSocket, SOL_SOCKET, SO_RCVTIMEO, &readTimeout, sizeof(readTimeout));
+	
+	// Create and fill the information needed to bind to the socket:
+	struct sockaddr_in receiveAddress;
+	memset(&receiveAddress, 0, sizeof(receiveAddress));
+	receiveAddress.sin_family = AF_INET; // IPv4
+	receiveAddress.sin_addr.s_addr = INADDR_ANY;
+	receiveAddress.sin_port = htons(12001);
+
+	// Bind to the socket:
+	if (bind(receiveSocket, (const struct sockaddr *)&receiveAddress, sizeof(receiveAddress)) < 0)
+    {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
 
 	ship shipA = createShip(32, 32, 512, 512, 1, 0, 0);
 	ship shipB = createShip(32, 32, -512, -512, 0, 1, 1);
@@ -270,15 +341,22 @@ int main(int argc, char ** argv)
 	acceleratingTexture = IMG_LoadTexture(renderer, "./Images/Ship-Accelerating.png");
 	anticlockwiseTexture = IMG_LoadTexture(renderer, "./Images/Ship-Anticlockwise.png");
 	acceleratingTexture2 = IMG_LoadTexture(renderer, "./Images/Ship-Accelerating-Frame-2.png");
-
+	currentTexture = acceleratingTexture;
 	// Enable resizing the window:
 	SDL_SetWindowResizable(window, SDL_TRUE);
 
+	playerController playerOne = createShipPlayerController(&shipA);
+	playerController playerTwo = createShipPlayerController(&shipB);
 	while (!quit)
 	{
 		lastFrameTime = thisFrameTime;
 		thisFrameTime = SDL_GetPerformanceCounter();
 		deltaTime = (double)(((thisFrameTime - lastFrameTime) * 1000) / (double)SDL_GetPerformanceFrequency());
+
+		sendto(sendSocket, &shipA, sizeof(ship), 0, (const struct sockaddr *)&sendAddress, sizeof(sendAddress));
+		sendto(sendSocket, &shipB, sizeof(ship), 0, (const struct sockaddr *)&sendAddress, sizeof(sendAddress));
+		// Store the window's current width and height:
+		SDL_GetWindowSize(window, &width, &height);
 		
 		// Check input:
 		while (SDL_PollEvent(&event))
@@ -296,17 +374,17 @@ int main(int argc, char ** argv)
 					{
 						case SDLK_LEFT:
 						{						
-							shipA.turningAnticlockwise = true;
+							playerOne.turningAnticlockwise = true;
 							break;
 						}
 						case SDLK_RIGHT:
 						{
-							shipA.turningClockwise = true;
+							playerOne.turningClockwise = true;
 							break;
 						}
 						case SDLK_UP:
 						{
-							shipA.accelerating = true;
+							playerOne.accelerating = true;
 							break;
 						}
 						default:
@@ -322,17 +400,17 @@ int main(int argc, char ** argv)
 					{
 						case SDLK_LEFT:
 						{
-							shipA.turningAnticlockwise = false;
+							playerOne.turningAnticlockwise = false;
 							break;
 						}
 						case SDLK_RIGHT:
 						{
-							shipA.turningClockwise = false;
+							playerOne.turningClockwise = false;
 							break;
 						}
 						case SDLK_UP:
 						{
-							shipA.accelerating = false;
+							playerOne.accelerating = false;
 							frameAccumulator = 0;
 							break;
 						}
@@ -388,55 +466,19 @@ int main(int argc, char ** argv)
 			shipB.position.yComponent = 2000;
 			shipB.velocity.yComponent *= 0.9;
 		}
-		
-        // Store the window's current width and height:
-		SDL_GetWindowSize(window, &width, &height);
 
-		// Calculate the gravity for the ships:
-		calculateGravity(&starPosition, &shipA);
-		calculateGravity(&starPosition, &shipB);
-		
-		// Set the texture to idle:
-		currentTexture = idleTexture;
-		
-		// Rotate the engine vector if needed:
-		if (shipA.turningClockwise)
-		{
-			rotateXYVector(&shipA.engine, 0.25 * deltaTime);
-			currentTexture = clockwiseTexture;
-		}
-		if (shipA.turningAnticlockwise)
-		{
-			rotateXYVector(&shipA.engine, -0.25 * deltaTime);	
-			currentTexture = anticlockwiseTexture;
-		}
-		
-		// Calculate the new current velocity:
-		addXYVectorDeltaScaled(&shipA.velocity, &shipA.gravity, deltaTime);
-		addXYVectorDeltaScaled(&shipB.velocity, &shipB.gravity, deltaTime);
-		
-		if (shipA.accelerating)
-		{
-			addXYVectorDeltaScaled(&shipA.velocity, &shipA.engine, deltaTime);
-			frameAccumulator += deltaTime;
-			currentTexture = acceleratingTexture;
-			if((long)frameAccumulator % 4)
-			{
-				currentTexture = acceleratingTexture2;
-			}
-		}
-		
-		// Calculate the new position:
-		addXYVectorDeltaScaled(&shipA.position, &shipA.velocity, deltaTime);
-		addXYVectorDeltaScaled(&shipB.position, &shipB.velocity, deltaTime);
-		
-		// Calculate the position of the sprites:
+		//
+		doShipInput(&playerOne, &shipA, starPosition, deltaTime);
+		takeNetworkInput(&playerTwo, receiveSocket);
+		doShipInput(&playerTwo, &shipB, starPosition, deltaTime);
 		shipA.rectangle.x = (width/2) - 16 - (shipA.velocity.xComponent * 15);
 		shipA.rectangle.y = (height/2) - 16 - (shipA.velocity.yComponent * 15);
+
 
 		shipB.rectangle.x = (long)((((shipB.position.xComponent - shipA.position.xComponent) - 32) + width/2) - (shipA.velocity.xComponent * 15));
 		shipB.rectangle.y = (long)((((shipB.position.yComponent - shipA.position.yComponent) - 32) + height/2) - (shipA.velocity.yComponent * 15));
 		
+
 		// Set the colour to black:
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 
@@ -447,7 +489,7 @@ int main(int argc, char ** argv)
 		SDL_RenderCopyEx(renderer, currentTexture, NULL, &shipA.rectangle,
 						 angleBetweenVectors(&shipA.engine, &upVector) + 90, NULL, 0);
 		SDL_RenderCopyEx(renderer, currentTexture, NULL, &shipB.rectangle,
-						 angleBetweenVectors(&shipB.velocity, &upVector) + 90, NULL, 0);
+						 angleBetweenVectors(&shipB.engine, &upVector) + 90, NULL, 0);
 		
 		// Set the colour to yellow:
 		SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
@@ -476,13 +518,10 @@ int main(int argc, char ** argv)
 
 		// Present the rendered graphics:
 		SDL_RenderPresent(renderer);
-
-		sendto(socketFileDesc, &shipA, sizeof(ship), 0, (const struct sockaddr *)&serverAddress, sizeof(serverAddress));
-		sendto(socketFileDesc, &shipB, sizeof(ship), 0, (const struct sockaddr *)&serverAddress, sizeof(serverAddress));
 	}
 	return 0;
 }
 // ========================================================================================================
 // Local Variables:
-// compile-command: "gcc `sdl2-config --libs --cflags` SDL2-Experiment-17.c -lSDL2_image -lm -o 'Spacewar!'"
+// compile-command: "gcc `sdl2-config --libs --cflags` SDL2-Experiment-18.c -lSDL2_image -lm -o 'Spacewar!'"
 // End:

@@ -1,4 +1,4 @@
-// SDL Experiment 17, Barra Ó Catháin.
+// SDL Experiment 18, Barra Ó Catháin.
 // ===================================
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
@@ -21,16 +21,25 @@ typedef struct xyVector
 // A struct storing the needed data to draw a ship:
 typedef struct ship
 {
-	SDL_Rect rectangle;
+	int number;
+	xyVector engine;
+	xyVector gravity;
 	xyVector position;
 	xyVector velocity;
-	xyVector gravity;
-	int number;
+	SDL_Rect rectangle;
 } ship;
+
+typedef struct playerController
+{
+	int number;
+	int clockwiseTurn, anticlockwiseTurn, acceleratingAmount;
+	bool turningClockwise, turningAnticlockwise, accelerating;	
+} playerController;
+
 
 // Get the angle between vectors:
 static inline double angleBetweenVectors(xyVector * vectorA, xyVector * vectorB)
-{
+{	
 	double dotProduct = (vectorA->xComponent * vectorB->xComponent) + (vectorA->yComponent * vectorB->yComponent);
 	double determinant = (vectorA->xComponent * vectorB->yComponent) - (vectorA->yComponent * vectorB->xComponent);
 
@@ -78,7 +87,7 @@ void DrawCircle(SDL_Renderer * renderer, int32_t centreX, int32_t centreY, int32
 int main(int argc, char ** argv)
 {
 	SDL_Event event;
-	bool quit = false;
+	bool quit = false, rotatingClockwise = false, rotatingAnticlockwise = false, accelerating = false;
 	int width = 0, height = 0;
 	uint32_t rendererFlags = SDL_RENDERER_ACCELERATED;
 	uint64_t thisFrameTime = SDL_GetPerformanceCounter(), lastFrameTime = 0;
@@ -87,8 +96,8 @@ int main(int argc, char ** argv)
 		engineVector = {0.04, 0}, upVector = {0, 0.1}, starPosition = {0, 0};
 
     // Create the socket:
-	int socketFileDesc = socket(AF_INET, SOCK_DGRAM, 0);
-	if (socketFileDesc < 0)
+	int receiveSocket = socket(AF_INET, SOCK_DGRAM, 0);
+	if (receiveSocket < 0)
 	{
 		fprintf(stderr, "\tSocket Creation is:\t\033[33;40mRED.\033[0m Aborting launch.\n");
 		exit(0);
@@ -98,8 +107,8 @@ int main(int argc, char ** argv)
 	// Make the socket timeout:
 	struct timeval read_timeout;
 	read_timeout.tv_sec = 0;
-	read_timeout.tv_usec = 10;
-	setsockopt(socketFileDesc, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
+	read_timeout.tv_usec = 16;
+	setsockopt(receiveSocket, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof(read_timeout));
 	
 	// Create and fill the information needed to bind to the socket:
 	struct sockaddr_in serverAddress;
@@ -109,12 +118,29 @@ int main(int argc, char ** argv)
 	serverAddress.sin_port = htons(12000);
 
 	// Bind to the socket:
-	if (bind(socketFileDesc, (const struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
+	if (bind(receiveSocket, (const struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
     {
         perror("bind failed");
         exit(EXIT_FAILURE);
     }
 
+	// Create the socket:
+	int sendSocket = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sendSocket < 0)
+	{
+		fprintf(stderr, "\tSocket Creation is:\t\033[33;40mRED.\033[0m Aborting launch.\n");
+		exit(0);
+	}
+	printf("\tSocket Creation is:\t\033[32;40mGREEN.\033[0m\n");
+
+	
+	// Create and fill the information needed to bind to the socket:
+	struct sockaddr_in sendAddress;
+	memset(&sendAddress, 0, sizeof(sendAddress));
+	sendAddress.sin_family = AF_INET; // IPv4
+	sendAddress.sin_addr.s_addr = inet_addr("127.0.0.1");
+	sendAddress.sin_port = htons(12001);
+	
 	// Get the initial
 	ship shipA;
 	ship shipB;
@@ -147,13 +173,15 @@ int main(int argc, char ** argv)
 	// Enable resizing the window:
 	SDL_SetWindowResizable(window, SDL_TRUE);
 	ship Temp;
+	playerController playerOne;
+	playerOne.number = 1;
 	bool shipAUpdated, shipBUpdated;
 	while (!quit)
 	{
 		while(!(shipAUpdated && shipBUpdated))
 		{
 			// Receive data from the socket:
-			recvfrom(socketFileDesc, &Temp, sizeof(ship), 0, NULL, NULL);
+			recvfrom(receiveSocket, &Temp, sizeof(ship), 0, NULL, NULL);
 			if(Temp.number == 0)
 			{
 				shipA = Temp;
@@ -165,24 +193,72 @@ int main(int argc, char ** argv)
 				shipBUpdated = true;
 			}
 		}
-		
+	
 		// Check if the user wants to quit:
 		while (SDL_PollEvent(&event))
         {
             switch (event.type)
             {
-				case SDL_QUIT:
+			case SDL_QUIT:
+			{
+				quit = true;
+				break;
+			}
+			case SDL_KEYDOWN:
+			{
+				switch (event.key.keysym.sym)
 				{
-					quit = true;
+				case SDLK_LEFT:
+				{
+					playerOne.turningAnticlockwise = true;
+					break;
+				}
+				case SDLK_RIGHT:
+				{
+					playerOne.turningClockwise = true;
+					break;
+				}
+				case SDLK_UP:
+				{
+					playerOne.accelerating = true;
 					break;
 				}
 				default:
 				{
 					break;
 				}
-            }
-        }
-
+				}
+				break;
+			}
+			case SDL_KEYUP:
+			{
+				switch (event.key.keysym.sym)
+				{
+				case SDLK_LEFT:
+				{
+					playerOne.turningAnticlockwise = false;
+					break;
+				}
+				case SDLK_RIGHT:
+				{
+					playerOne.turningClockwise = false;
+					break;
+				}
+				case SDLK_UP:
+				{
+					playerOne.accelerating = false;
+					break;
+				}
+				}
+			}
+			default:
+			{
+				break;
+			}	   
+			break;
+			}
+		}
+		sendto(sendSocket, &playerOne, sizeof(playerOne), 0, (const struct sockaddr *)&sendAddress, sizeof(sendAddress));
         // Store the window's current width and height:
 		SDL_GetWindowSize(window, &width, &height);
 
@@ -204,9 +280,9 @@ int main(int argc, char ** argv)
 
 		// Draw the ship:
 		SDL_RenderCopyEx(renderer, currentTexture, NULL, &shipA.rectangle,
-						 angleBetweenVectors(&shipA.velocity, &upVector) + 90, NULL, 0);
+						 angleBetweenVectors(&shipA.engine, &upVector) + 90, NULL, 0);
 		SDL_RenderCopyEx(renderer, currentTexture, NULL, &shipB.rectangle,
-						 angleBetweenVectors(&shipB.velocity, &upVector) + 90, NULL, 0);
+						 angleBetweenVectors(&shipB.engine, &upVector) + 90, NULL, 0);
 		
 		// Set the colour to yellow:
 		SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
@@ -224,5 +300,5 @@ int main(int argc, char ** argv)
 }
 // ========================================================================================================
 // Local Variables:
-// compile-command: "gcc `sdl2-config --libs --cflags` SDL2-Experiment-17-Client.c -lSDL2_image -lm -o 'Spacewar Client!'"
+// compile-command: "gcc `sdl2-config --libs --cflags` SDL2-Experiment-18-Client.c -lSDL2_image -lm -o 'Spacewar Client!'"
 // End:
