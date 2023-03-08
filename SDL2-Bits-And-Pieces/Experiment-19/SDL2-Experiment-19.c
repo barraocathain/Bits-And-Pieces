@@ -1,4 +1,4 @@
-// SDL Experiment 18, Barra Ó Catháin.
+// SDL Experiment 19, Barra Ó Catháin.
 // ===================================
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
@@ -130,6 +130,12 @@ static inline void takeNetworkInput(playerController * controller, int descripto
 }
 
 
+static inline void getPlayerInput(playerController * controller, int playerNumber)
+{
+	SDL_PumpEvents();
+	int keyboardStateLength = 0;
+	uint8_t * keyboardState = SDL_GetKeyboardState(&keyboardStateLength);
+}
 void doShipInput(playerController * controller, ship * ship, xyVector starPosition, double deltaTime)
 {
 	if(controller->number == ship->number)

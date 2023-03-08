@@ -1,4 +1,4 @@
-// SDL Experiment 18, Barra Ó Catháin.
+// SDL Experiment 19, Barra Ó Catháin.
 // ===================================
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
