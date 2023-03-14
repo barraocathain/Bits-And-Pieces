@@ -16,8 +16,10 @@ typedef struct ship
 // A struct to store the input state for one player:
 typedef struct playerController
 {
+	SDL_Joystick * joystick;
+	SDL_Haptic * haptic;
 	int number;
-	int clockwiseTurn, anticlockwiseTurn, acceleratingAmount;
+	double turningAmount, acceleratingAmount;
 	bool turningClockwise, turningAnticlockwise, accelerating;	
 } playerController;
 

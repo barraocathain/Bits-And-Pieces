@@ -133,9 +133,38 @@ static inline void takeNetworkInput(playerController * controller, int descripto
 static inline void getPlayerInput(playerController * controller, int playerNumber)
 {
 	SDL_PumpEvents();
-	int keyboardStateLength = 0;
-	uint8_t * keyboardState = SDL_GetKeyboardState(&keyboardStateLength);
+	const uint8_t * keyboardState = SDL_GetKeyboardState(NULL);
+	if(keyboardState[SDL_SCANCODE_UP] == 1)
+	{
+		controller->accelerating = true;
+	}
+	else
+	{
+		controller->accelerating = false;
+	}
+	if(keyboardState[SDL_SCANCODE_LEFT] == 1)
+	{
+		controller->turningAnticlockwise = true;
+	}
+	else
+	{
+		controller->turningAnticlockwise = false;;
+	}
+	if(keyboardState[SDL_SCANCODE_RIGHT] == 1)
+	{
+		controller->turningClockwise = true;
+	}
+	else
+	{
+		controller->turningClockwise = false;
+	}
+	if(controller->joystick != NULL)
+	{
+		controller->turningAmount = SDL_JoystickGetAxis(controller->joystick, 0);
+		controller->acceleratingAmount = SDL_JoystickGetAxis(controller->joystick, 5);
+	}
 }
+
 void doShipInput(playerController * controller, ship * ship, xyVector starPosition, double deltaTime)
 {
 	if(controller->number == ship->number)
@@ -148,15 +177,35 @@ void doShipInput(playerController * controller, ship * ship, xyVector starPositi
 		{
 			rotateXYVector(&ship->engine, 0.25 * deltaTime);
 		}
+		else if (controller->turningAmount > 2500)
+		{
+			double rotationalSpeed = (controller->turningAmount / 20000);
+			rotateXYVector(&ship->engine, 0.25 * deltaTime * rotationalSpeed);
+		}
+		
 		if (controller->turningAnticlockwise)
 		{
 			rotateXYVector(&ship->engine, -0.25 * deltaTime);	
 		}
+		else if (controller->turningAmount < -2500)
+		{
+			double rotationalSpeed = (controller->turningAmount / 20000);
+			rotateXYVector(&ship->engine, 0.25 * deltaTime * rotationalSpeed);
+		}
 		
 		// Calculate the new current velocity:
 		addXYVectorDeltaScaled(&ship->velocity, &ship->gravity, deltaTime);
+
+		if (controller->acceleratingAmount > 2500)
+		{
+			xyVector temporary = ship->engine;
+			multiplyXYVector(&ship->engine, controller->acceleratingAmount/ 32748);
+			SDL_HapticRumblePlay(controller->haptic, (float)controller->acceleratingAmount / 32768, 20);
+			addXYVectorDeltaScaled(&ship->velocity, &ship->engine, deltaTime);
+			ship->engine = temporary;
+		}
 		
-		if (controller->accelerating)
+		else if (controller->accelerating)
 		{
 			addXYVectorDeltaScaled(&ship->velocity, &ship->engine, deltaTime);
 		}
@@ -228,25 +277,6 @@ int main(int argc, char ** argv)
 	{
 		printf("SDL Initialization Error: %s\n", SDL_GetError());
 	}
-
-	// Check for joysticks:
-	SDL_Joystick * controller = NULL;
-	SDL_Haptic * haptic = NULL;
-	if (SDL_NumJoysticks() < 1 )
-	{
-		printf( "Warning: No joysticks connected!\n" );
-	}
-	else
-	{
-		// Load joystick
-		controller = SDL_JoystickOpen(0);
-		if (controller == NULL )
-		{
-			printf( "Warning: Unable to open game controller! SDL Error: %s\n", SDL_GetError() );
-		}
-		haptic = SDL_HapticOpenFromJoystick(controller);
-		SDL_HapticRumbleInit(haptic);
-	}
 	
 	// Initialize image loading:
 	IMG_Init(IMG_INIT_PNG);
@@ -268,11 +298,30 @@ int main(int argc, char ** argv)
 	anticlockwiseTexture = IMG_LoadTexture(renderer, "./Images/Ship-Anticlockwise.png");
 	acceleratingTexture2 = IMG_LoadTexture(renderer, "./Images/Ship-Accelerating-Frame-2.png");
 	currentTexture = acceleratingTexture;
+
 	// Enable resizing the window:
 	SDL_SetWindowResizable(window, SDL_TRUE);
 
 	playerController playerOne = createShipPlayerController(&shipA);
 	playerController playerTwo = createShipPlayerController(&shipB);
+
+	// Check for joysticks:
+	if (SDL_NumJoysticks() < 1 )
+	{
+		printf( "Warning: No joysticks connected!\n" );
+	}
+	else
+	{
+		// Load joystick
+		playerOne.joystick = SDL_JoystickOpen(0);
+		if (playerOne.joystick == NULL )
+		{
+			printf( "Warning: Unable to open game controller! SDL Error: %s\n", SDL_GetError() );
+		}
+		playerOne.haptic = SDL_HapticOpenFromJoystick(playerOne.joystick);
+		SDL_HapticRumbleInit(playerOne.haptic);
+	}
+
 	while (!quit)
 	{
 		lastFrameTime = thisFrameTime;
@@ -294,65 +343,8 @@ int main(int argc, char ** argv)
 					quit = true;
 					break;
 				}
-				case SDL_KEYDOWN:
-				{
-					switch (event.key.keysym.sym)
-					{
-						case SDLK_LEFT:
-						{						
-							playerOne.turningAnticlockwise = true;
-							break;
-						}
-						case SDLK_RIGHT:
-						{
-							playerOne.turningClockwise = true;
-							break;
-						}
-						case SDLK_UP:
-						{
-							playerOne.accelerating = true;
-							break;
-						}
-						default:
-						{
-							break;
-						}
-					}
-					break;
-				}
-				case SDL_KEYUP:
-				{
-					switch (event.key.keysym.sym)
-					{
-						case SDLK_LEFT:
-						{
-							playerOne.turningAnticlockwise = false;
-							break;
-						}
-						case SDLK_RIGHT:
-						{
-							playerOne.turningClockwise = false;
-							break;
-						}
-						case SDLK_UP:
-						{
-							playerOne.accelerating = false;
-							frameAccumulator = 0;
-							break;
-						}
-						default:
-						{
-							break;
-						}
-					}
-					break;
-				}
-				default:
-				{
-					break;
-				}
-            }
-        }
+			}
+		}
 		
 		// Wrap the positions if the ship goes interstellar:
 		if(shipA.position.xComponent > 4096)
@@ -393,13 +385,16 @@ int main(int argc, char ** argv)
 			shipB.velocity.yComponent *= 0.9;
 		}
 
-		//
-		doShipInput(&playerOne, &shipA, starPosition, deltaTime);
+		// Get the needed input:
+		getPlayerInput(&playerOne, 0);
 		takeNetworkInput(&playerTwo, receiveSocket);
+
+		// Do the needed input:
+		doShipInput(&playerOne, &shipA, starPosition, deltaTime);
 		doShipInput(&playerTwo, &shipB, starPosition, deltaTime);
+		
 		shipA.rectangle.x = (width/2) - 16 - (shipA.velocity.xComponent * 15);
 		shipA.rectangle.y = (height/2) - 16 - (shipA.velocity.yComponent * 15);
-
 
 		shipB.rectangle.x = (long)((((shipB.position.xComponent - shipA.position.xComponent) - 32) + width/2) - (shipA.velocity.xComponent * 15));
 		shipB.rectangle.y = (long)((((shipB.position.yComponent - shipA.position.yComponent) - 32) + height/2) - (shipA.velocity.yComponent * 15));
@@ -416,7 +411,7 @@ int main(int argc, char ** argv)
 						 angleBetweenVectors(&shipA.engine, &upVector) + 90, NULL, 0);
 		SDL_RenderCopyEx(renderer, currentTexture, NULL, &shipB.rectangle,
 						 angleBetweenVectors(&shipB.engine, &upVector) + 90, NULL, 0);
-		
+
 		// Set the colour to yellow:
 		SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
 
