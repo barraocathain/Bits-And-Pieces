@@ -283,7 +283,50 @@ int main(int argc, char ** argv)
 	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");
 	SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
 	
-	// Create an SDL window and rendering context in that window:
+	playerController playerOne = createShipPlayerController(&shipA);
+	playerController playerTwo = createShipPlayerController(&shipB);
+
+	// Check for joysticks:
+	if (SDL_NumJoysticks() < 1 )
+	{
+		printf( "Warning: No joysticks connected!\n" );
+	}
+	else
+	{
+		// Load all joysticks:
+		int joystickListLength = SDL_NumJoysticks();
+		SDL_Joystick ** joysticksList = calloc(joystickListLength, sizeof(SDL_Joystick*));
+		
+		for(int index = 0; index < SDL_NumJoysticks(); index++)
+		{
+			joysticksList[index] = SDL_JoystickOpen(index);
+		}
+
+		// Choose a player joystick:
+		printf("Please press button zero on the controller you wish to use. \n");
+
+		int joystickIndex = 0;
+		while(SDL_JoystickGetButton(joysticksList[joystickIndex], 0) == 0)
+		{
+			SDL_PumpEvents();
+			joystickIndex++;
+			if(joystickIndex >= joystickListLength)
+			{
+				joystickIndex = 0;
+			}
+		}
+		
+		// Load joystick
+		playerOne.joystick = joysticksList[joystickIndex];
+		if (playerOne.joystick == NULL )
+		{
+			printf( "Warning: Unable to open game controller! SDL Error: %s\n", SDL_GetError() );
+		}
+		playerOne.haptic = SDL_HapticOpenFromJoystick(playerOne.joystick);
+		SDL_HapticRumbleInit(playerOne.haptic);
+	}
+
+		// Create an SDL window and rendering context in that window:
 	SDL_Window * window = SDL_CreateWindow("SDL_TEST", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 700, 700, 0);
 	SDL_Renderer * renderer = SDL_CreateRenderer(window, -1, rendererFlags);
 	SDL_SetWindowTitle(window, "Spacewar!");
@@ -302,26 +345,9 @@ int main(int argc, char ** argv)
 	// Enable resizing the window:
 	SDL_SetWindowResizable(window, SDL_TRUE);
 
-	playerController playerOne = createShipPlayerController(&shipA);
-	playerController playerTwo = createShipPlayerController(&shipB);
-
-	// Check for joysticks:
-	if (SDL_NumJoysticks() < 1 )
-	{
-		printf( "Warning: No joysticks connected!\n" );
-	}
-	else
-	{
-		// Load joystick
-		playerOne.joystick = SDL_JoystickOpen(0);
-		if (playerOne.joystick == NULL )
-		{
-			printf( "Warning: Unable to open game controller! SDL Error: %s\n", SDL_GetError() );
-		}
-		playerOne.haptic = SDL_HapticOpenFromJoystick(playerOne.joystick);
-		SDL_HapticRumbleInit(playerOne.haptic);
-	}
-
+	lastFrameTime = SDL_GetPerformanceCounter();
+	thisFrameTime = SDL_GetPerformanceCounter();
+	
 	while (!quit)
 	{
 		lastFrameTime = thisFrameTime;
